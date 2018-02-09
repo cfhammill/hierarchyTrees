@@ -1,0 +1,4 @@
+#' Compile a tree model
+#'
+#' Compile one of the models available in this
+#' package.

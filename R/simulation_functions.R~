@@ -1,0 +1,185 @@
+#' Recompute volumes for non-leaf nodes
+#'
+#' Destructively aggregate volumes from the leaves to the
+#' root. This sets each non-leaf node to be the sum of its
+#' children
+#' @param tree
+#' @return the tree invisibly
+#' @export
+aggregate_volsD <-
+  function(tree){
+    if(is.null(tree$children) || length(tree$children) == 0)
+      return(tree)
+
+    sapply(tree$children, aggregate_volsD)
+
+    tree$volumes <-
+      sapply(tree$children
+           , function(n) n$volumes) %>%
+      as.matrix %>%
+      rowSums
+
+    tree$meanVolume <- mean(tree$volumes)
+
+    invisible(tree)
+  }
+
+#' Check parent
+#'
+#' Check if node descends from node "name"
+#'
+#' @param node The node of interest
+#' @param name The name to look for in the nodes
+#' ancestry
+#' @return boolean whether one of nodes ancestors
+#' has the specified `name`
+child_of <- function(node, name){
+  if(is.null(node$parent))
+    return(FALSE)
+
+  if(node$parent$name == name)
+    return(TRUE)
+
+  child_of(node$parent, name)
+}
+
+#' Increment volumes
+#'
+#' Destructively add effect to the volume
+#' of all leaves at or below node "name"
+#'
+#' @param tree The tree of interest
+#' @param name The name to increment at or below
+#' @param effect a scalar or vector corresponding to the
+#' amount to add to each leaf.
+add_effectD <-
+  function(tree, name, effect){
+    if(!is.null(tree$children) && length(tree$children) > 0){
+      lapply(tree$children, add_effectD, name = name, effect = effect)
+    } else {
+      if(tree$name == name || child_of(tree, name)){
+        tree$volumes <- tree$volumes + effect
+      }
+    }
+
+    invisible(tree)
+  }
+
+#' Scale node volumes up
+#'
+#' Destructively apply a scale factor to the volumes of all leaf
+#' nodes at or below node "name"
+#'
+#' @param tree the tree of interest
+#' @param scale a scalar or vector of how much to scale each
+#' volume
+#' @param scale the scale
+scale_volumesD <-
+  function(tree, name, scale){
+    if(!is.null(tree$children) && length(tree$children) > 0){
+      lapply(tree$children, scale_volumesD, name = name, scale = scale)
+    } else {
+      if(tree$name == name || child_of(tree, name)){
+        tree$volumes <- scale * tree$volumes
+      }
+    }
+
+    invisible(tree)    
+  }
+
+#' Set leaves
+#'
+#' Set the volumes at the leaves of a tree to a specific value.
+#'
+#' @param tree the tree of interest
+#' @param vals a scalar or vector of replacement values
+set_leavesD <-
+  function(tree, vals){
+    tree$Do(function(n) if(isLeaf(n)) n$volumes[] <- vals)
+
+    invisible(tree)
+  }
+
+
+## Construct a simulated tree
+sim_tree <- Clone(vols_hierarchical) ## Clone the real tree
+
+leaves <-                            ## Find the leaves
+  sim_tree$Get("name", filterFun = isLeaf)
+
+leaf_volumes <-                      ## Fake structure volumes
+  exp(rnorm(length(leaves), -.53, 1.34)) %>%
+  setNames(leaves)
+
+leaf_effects <-                      ## Create an effect vector
+  rnorm(length(leaves), .05, .02) %>%
+  setNames(leaves)
+
+covariates <-                        ## Get the covariate
+  ifelse(vf$SEX == "M", 1, 0)
+
+indivs <- metadata$ID                ##  Generate Individual effects
+indiv_effects <-
+  rnorm(length(indivs), 0, .05) %>%
+  setNames(indivs)
+
+## Zero the vols
+set_leavesD(sim_tree, 0)
+
+## Add sex effect
+walk(leaves
+   , function(l)
+     add_effectD(sim_tree
+               , l
+               , 1 + leaf_effects[l] * covariates))
+
+## Add individual effect
+add_effectD(sim_tree, sim_tree$name, indiv_effects)
+
+## Add noise
+walk(leaves
+     , function(l)
+       add_effectD(sim_tree
+                , l
+                , rnorm(length(sim_tree$volumes), 0, .01)))
+
+## Scale the tree
+walk(leaves
+     , function(l)
+       scale_volumesD(sim_tree
+                      , l
+                      , leaf_volumes[l]))
+## Aggregate volumes
+aggregate_volsD(sim_tree)
+
+## Generate Assets
+simulated_assets <- generate_data(sim_tree, function(n) TRUE, function(n) TRUE)
+
+## Now generate the parent information
+pad_with_first <-
+  function(i, n)
+    `if`(length(i) < n, pad_with_first(c(i[1], i), n), i) 
+
+
+tree_with_paths <- 
+  sim_tree$Get(function(n){
+    parent <- `if`(is.null(n$parent), NA, n$parent$name)
+    data_frame(name = n$name, parent = parent, depth = n$level, path = list(rev(n$path)[-1]))
+  }
+, simplify = FALSE) %>%
+  bind_rows %>%
+mutate(path_parent =
+           map(path, function(p)
+             map(p, function(par)
+               pluck(filter(., name == par), "parent", 1)))) %>%
+mutate(path_parent =
+         local({ max_depth <- max(depth) - 1; map(path, pad_with_first, max_depth)})
+     , path_ind = list(paste0("parent", seq_len(length(path_parent[[1]]))))) %>%
+select(-path) %>%
+unnest %>%
+spread(path_ind, path_parent)
+
+     
+## Test Models
+
+# A: flat hierarchy, all data
