@@ -1,15 +1,14 @@
 Package: hierarchyTrees
 Type: Package
-Title: Code for testing ontology tree models 
+Title: Code for testing taxonomy tree models 
 Version: 0.1
 Date: 2018-02-05
 Author: Chris Hammill
 Maintainer: Chris Hammill <cfhammill@gmail.com>
-Description: Code for fitting and evaluating hierarchical models that allow for tree structured shared ontology between measurements.
+Description: Code for fitting and evaluating hierarchical models that allow for tree structured taxonomy of measurements.
 License: MIT
 Depends:
     tidyverse,
-    RMINC,
     data.tree,	
     rstan,
     rstanarm,
