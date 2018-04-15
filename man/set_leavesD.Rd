@@ -4,12 +4,14 @@
 \alias{set_leavesD}
 \title{Set leaves}
 \usage{
-set_leavesD(tree, vals)
+set_leavesD(tree, vals, name = tree$name)
 }
 \arguments{
 \item{tree}{the tree of interest}
 
 \item{vals}{a scalar or vector of replacement values}
+
+\item{name}{the node name to set at or below}
 }
 \value{
 the tree invisibly

@@ -21,23 +21,37 @@ tree_to_volume_frame <-
       setNames(paste0("level", seq_len(max_depth))) %>%
       as.list %>%
       (dplyr::as_data_frame)
+
+    rep_last <- function(x, len){
+      xlen <- length(x)
+      
+      if(xlen < len)
+        x <- c(x, rep(x[xlen], len - xlen))
+
+      x
+    }
     
     vf <-
       vol_tree$Get(filterFun = filterFun
                  , function(node){
                    node_attrs <-
                      data_frame(name = node$name
+                              , parent =
+                                  `if`(!is.null(node$parent$name)
+                                     , node$parent$name
+                                     , NA)
                               , volume = list(as.numeric(node$volumes))
                               , ind = list(as.character(1:length(node$volumes)))
                               , is_leaf = isLeaf(node))
 
                    depth <- node$level
                    node_path <- parents
-                   node_path[,seq_len(depth)] <- node$path
+                   node_path[1,] <- rep_last(node$path, max_depth)
 
                    cbind(node_attrs, node_path)
                  }
-               , simplify = FALSE) %>%
+               , simplify = FALSE
+               , traversal = "post-order") %>%
       bind_rows %>%
       unnest
 
@@ -57,13 +71,109 @@ tree_to_volume_frame <-
 tag_volume_frame <-
   function(vol_frame, metadata){
     metadata_munged <-
-      metadata %>% mutate(ind = seq_len(n()))
+      metadata %>% mutate(ind = as.character(seq_len(n())))
 
 
-    inner_join(vol_frame, metadata, by = "ind") %>%
+    inner_join(vol_frame, metadata_munged, by = "ind") %>%
       group_by(name) %>%
-      mutate(scaled_vol = as.numeric(scale(volume))) %>%
+      mutate(scaled_vol = as.numeric(scale(volume))
+           , mean_vol = mean(volume)
+           , sd_vol = sd(volume)) %>%
       ungroup
   }
 
 
+#' Find the parent indices for each node
+#'
+#' Walks the tree in pre-order extracting the index
+#' of the parent for each structure.
+#'
+#' @param tree The tree of interest
+#' @return An integer vector with parent indices
+#' @export
+parent_index <-
+  function(tree){
+    names <- tree$Get("name")
+    parent_name <- tree$Get(function(n) n$parent$name)
+
+    node_ind <- seq_along(names) %>% setNames(names)
+    parent_ind <- node_ind[parent_name]
+
+    parent_ind[is.na(parent_ind)] <- 0
+    names(parent_ind) <- names
+
+    parent_ind
+  }
+
+#' Get node numbers
+#'
+#' Take a vector of node names and return their index according
+#' to a tree walked in pre-order.
+#'
+#' @param x a vector of node names
+#' @param tree a tree to get the index from
+#' @return a vector with length x containing the node indices
+#' @export
+node_numbers <-
+  function(x, tree){
+    names <- tree$Get("name")
+    inds <- seq_along(names) %>% setNames(names)
+
+    inds[x]
+  }
+
+
+#' Convert a tree and metadata into useable data for ept
+#' data
+#'
+#' @param tree The tree containing volumes
+#' @param metadata The metadata necessary, requires `SEX` as
+#' the covariate.
+#' @return a list containing the requiste data for fitting an
+#' ept model.
+#' @export 
+tree_to_ept_data <- function(tree, metadata, justLeaves = FALSE){
+  hvf <- tree_to_volume_frame(tree, function(n) TRUE)
+  hvft <- tag_volume_frame(hvf, metadata)
+
+  leaves <- tree$Get("name", filterFun = isLeaf)
+  nodes <- tree$Get("name")
+  
+  sds <-
+    hvft %>%
+    group_by(name) %>%
+    summarize(sd_vol = sd_vol[1]) %>%
+    with( setNames(sd_vol, name) )
+
+  if(justLeaves){
+    hvf_sub <- hvft %>% filter(is_leaf)
+  } else {
+    hvf_sub <- hvft
+  }
+
+  hept_data <-
+  lst(N = nrow(hvf_sub)
+    , P = 2
+    , R = 1
+    , NNodes = length(unique(hvft$name))
+    , y = hvf_sub$scaled_vol
+    , node_number = node_numbers(hvf_sub$name, tree)
+    , node_parent = parent_index(tree)
+    , parent_ind = match(node_parent, unique(node_parent))
+    , NParents = length(unique(node_parent))
+    , model_matrix = model.matrix(~ SEX, data = hvf_sub)
+    , ranint_matrix = matrix(as.integer(as.factor(hvf_sub$ID)))
+    , ranint_sizes = as.array(max(ranint_matrix))
+    , Ranint_max = max(ranint_sizes)
+    , ranint_shape = 3
+    , lkj_shape = 1
+    , tau_shape = 3
+    , pi_conc = 1
+    , sig_model_shape = 1
+      )
+
+  list(hvft = hvf_sub
+     , hept = hept_data
+     , sds = sds[nodes]
+       ) 
+}

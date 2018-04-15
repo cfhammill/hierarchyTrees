@@ -14,7 +14,7 @@ ancestry}
 }
 \value{
 boolean whether one of nodes ancestors
-has the specified `name`
+has the specified \code{name}
 }
 \description{
 Check if node descends from node "name"

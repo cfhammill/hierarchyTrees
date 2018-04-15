@@ -4,15 +4,15 @@
 \alias{scale_volumesD}
 \title{Scale node volumes up}
 \usage{
-scale_volumesD(tree, name, scale)
+scale_volumesD(tree, scale, name = tree$name)
 }
 \arguments{
 \item{tree}{the tree of interest}
 
-\item{name}{the node name to increment at or below}
-
 \item{scale}{a scalar or vector of how much to scale each
 volume}
+
+\item{name}{the node name to increment at or below}
 }
 \value{
 the tree invisibly

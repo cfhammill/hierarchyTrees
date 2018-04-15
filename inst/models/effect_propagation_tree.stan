@@ -1,23 +1,25 @@
 data{
-  int N;
-  int NNodes;
-  int NParents;
-  int node_parent[NNodes]; // Node to parent number mapping
-  int P;
-  int R;
-  int Ranint_max;
-  int ranint_sizes[R];
-  matrix[N,P] model_matrix;
-  int ranint_matrix[N,R];
-  int node_number[N];
-  vector[N] y;
-  real lkj_shape;
-  real root_shape;
-  real sig_shape;
-  real ranint_shape;
-  real tau_shape;
-  real pi_conc;
-  real sig_model_shape;
+  // Data dimensions
+  int N;                    // Number of observations
+  int P;                    // Number of node dependent effects
+  int R;                    // Number of random intercepts
+  int NNodes;               // Number of nodes
+  int ranint_sizes[R];      // Number of levels for each random intercept
+  int Ranint_max;           // Max levels for the random intercepts
+  
+  // Observation data
+  vector[N] y;              // The volumes
+  int node_number[N];       // Which node each volume is
+  int node_parent[NNodes];  // Node to parent number mapping
+  matrix[N,P] model_matrix; // Model matrix for node dependent effects
+  int ranint_matrix[N,R];   // The random intercept levels for each obs
+
+  // Prior shapes
+  real ranint_shape;        // Cauchy shape for random effect variance
+  real lkj_shape;           // Shape for the LKJ for within node eff cov          
+  real tau_shape;           // Cauchy shape for LKJ tau
+  real pi_conc;             // Concentration param for LKJ
+  real sig_model_shape;     // Cauchy shape for the model variance
 }
 
 transformed data{
@@ -35,7 +37,8 @@ parameters{
 
   cholesky_factor_corr[P] L_omega;
   real<lower=0> tau; 
-  simplex[P] pivec; 
+  simplex[P] pivec;
+  vector[P] b_fix;
 
   vector[P] err[NNodes]; 
   
@@ -70,8 +73,9 @@ model{
   vector[N] y_est;
   target += gamma_lpdf(tau | tau_shape, 1);
   target += lkj_corr_cholesky_lpdf(L_omega | lkj_shape);
-  target += dirichlet_lpdf(pivec | p_pi_conc);     
-
+  target += dirichlet_lpdf(pivec | p_pi_conc);
+  target += normal_lpdf(b_fix | 0, 1);
+    
   for(i in 1:NNodes){ // Does this assume a balanced tree...?
     target += normal_lpdf(err[i] | 0, 1);
   }
@@ -83,7 +87,7 @@ model{
   target += cauchy_lpdf(sigma_ranints | 0, ranint_shape);
 
   for(i in 1:N){
-    y_est[i] = model_matrix[i,] * b[node_number[i]]; //y = xb (1x2 * 2x1)
+    y_est[i] = model_matrix[i,] * b_fix + model_matrix[i,] * b[node_number[i]]; //y = xb (1x2 * 2x1)
 
     for(r in 1:R)
       y_est[i] = y_est[i] + ranints[ranint_matrix[i,r], r];
@@ -95,19 +99,16 @@ model{
 }
 
 generated quantities {
-  vector[N] logLik; 
+  vector[N] y_pred;
+  vector[N] logLik;
 
-  {
-    vector[N] y_pred;
-    for(i in 1:N){
-   
-      y_pred[i] = model_matrix[i,] * b[node_number[i]]; //y = xb (1x2 * 2x1)
+  for(i in 1:N){ 
+    y_pred[i] = model_matrix[i,] * b_fix + model_matrix[i,] * b[node_number[i]]; //y = xb (1x2 * 2x1)
 
-      for(r in 1:R)
-	y_pred[i] = y_pred[i] + ranints[ranint_matrix[i,r], r];
-    
-      logLik[i] = normal_lpdf(y[i] | y_pred[i], sigma_model);
-    }
+    for(r in 1:R)
+      y_pred[i] = y_pred[i] + ranints[ranint_matrix[i,r], r];
+
+    logLik[i] = normal_lpdf(y[i] - y_pred[i] | 0, sigma_model);
   }
   
 }

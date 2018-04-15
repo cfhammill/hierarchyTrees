@@ -1,11 +1,11 @@
-Package: hierarchyTreeTests
+Package: hierarchyTrees
 Type: Package
-Title: Code for testing ontology models
-Version: 1.0
+Title: Code for testing ontology tree models 
+Version: 0.1
 Date: 2018-02-05
 Author: Chris Hammill
 Maintainer: Chris Hammill <cfhammill@gmail.com>
-Description: More about what it does (maybe more than one line)
+Description: Code for fitting and evaluating hierarchical models that allow for tree structured shared ontology between measurements.
 License: MIT
 Depends:
     tidyverse,
@@ -13,5 +13,9 @@ Depends:
     data.tree,	
     rstan,
     rstanarm,
-    loo,
+    loo
+Roxygen: list(markdown = TRUE)
 RoxygenNote: 6.0.1
+Suggests: knitr,
+    rmarkdown
+VignetteBuilder: knitr

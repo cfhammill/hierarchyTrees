@@ -4,7 +4,7 @@
 \alias{compile_models}
 \title{Compile a tree model}
 \usage{
-compile_models(model = c("effect_propagation_tree"))
+compile_models(model = c("effect_diffusion_tree", "simple_hierarchical"))
 }
 \arguments{
 \item{model}{The model to compile, see the

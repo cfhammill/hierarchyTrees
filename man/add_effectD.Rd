@@ -4,15 +4,15 @@
 \alias{add_effectD}
 \title{Increment volumes}
 \usage{
-add_effectD(tree, name, effect)
+add_effectD(tree, effect, name = tree$name)
 }
 \arguments{
 \item{tree}{The tree of interest}
 
-\item{name}{The node name to increment at or below}
-
 \item{effect}{a scalar or vector corresponding to the
 amount to add to each leaf.}
+
+\item{name}{The node name to increment at or below}
 }
 \value{
 the tree invisibly
