@@ -1,3 +1,5 @@
+#include /diffusion_tree_functions.stan
+
 data{
   // Data dimensions
   int N;                    // Number of observations
@@ -15,11 +17,12 @@ data{
   int ranint_matrix[N,R];   // The random intercept levels for each obs
 
   // Prior shapes
-  real ranint_shape;        // Cauchy shape for random effect variance
+  real ranint_shape;        // Normal (formerly cauchy) shape for random effect variance
   real lkj_shape;           // Shape for the LKJ for within node eff cov          
-  real tau_shape;           // Cauchy shape for LKJ tau
+  real tau_shape;           // Gamma shape for LKJ tau
+  real tau_rate;            // Gamma rate for LKJ tau
   real pi_conc;             // Concentration param for LKJ
-  real sig_model_shape;     // Cauchy shape for the model variance
+  real sig_model_shape;     // Normal (formerly cauchy) shape for the model variance
 }
 
 transformed data{
@@ -70,45 +73,59 @@ transformed parameters{
   
          
 model{
-  vector[N] y_est;
-  target += gamma_lpdf(tau | tau_shape, 1);
-  target += lkj_corr_cholesky_lpdf(L_omega | lkj_shape);
-  target += dirichlet_lpdf(pivec | p_pi_conc);
-  target += normal_lpdf(b_fix | 0, 1);
+  real logProb; 
+  target += tree_lpf(N, R, NNodes
+                     , ranint_sizes, node_number
+                     , model_matrix, ranint_matrix
+                     , tau, tau_shape, tau_rate
+                     , L_omega, lkj_shape
+                     , pivec, p_pi_conc
+                     , b_fix
+                     , err
+                     , ranints, sigma_ranints, ranint_shape
+                     , b
+                     , sigma_model, sig_model_shape
+                     , y);
+
+  //print(logProb);
+  //target += logProb;
+  
+  /* vector[N] y_est; */
+  /* target += gamma_lpdf(tau | tau_shape, 1); */
+  /* target += lkj_corr_cholesky_lpdf(L_omega | lkj_shape); */
+  /* target += dirichlet_lpdf(pivec | p_pi_conc); */
+  /* target += normal_lpdf(b_fix | 0, 1); */
     
-  for(i in 1:NNodes){ // Does this assume a balanced tree...?
-    target += normal_lpdf(err[i] | 0, 1);
-  }
+  /* for(i in 1:NNodes){ // Does this assume a balanced tree...? */
+  /*   target += normal_lpdf(err[i] | 0, 1); */
+  /* } */
   
-  for(r in 1:R) // This should probably be tabulated for each obs
-    for(i in 1:(ranint_sizes[r]))
-      target += normal_lpdf(ranints[i,r] | 0, sigma_ranints[r]);
+  /* for(r in 1:R) // This should probably be tabulated for each obs */
+  /*   for(i in 1:(ranint_sizes[r])) */
+  /*     target += normal_lpdf(ranints[i,r] | 0, sigma_ranints[r]); */
 
-  target += cauchy_lpdf(sigma_ranints | 0, ranint_shape);
+  /* target += cauchy_lpdf(sigma_ranints | 0, ranint_shape); */
 
-  for(i in 1:N){
-    y_est[i] = model_matrix[i,] * b_fix + model_matrix[i,] * b[node_number[i]]; //y = xb (1x2 * 2x1)
+  /* for(i in 1:N){ */
+  /*   y_est[i] = model_matrix[i,] * b_fix + model_matrix[i,] * b[node_number[i]]; //y = xb (1x2 * 2x1) */
 
-    for(r in 1:R)
-      y_est[i] = y_est[i] + ranints[ranint_matrix[i,r], r];
+  /*   for(r in 1:R) */
+  /*     y_est[i] = y_est[i] + ranints[ranint_matrix[i,r], r]; */
 
-    target += normal_lpdf(y[i] - y_est[i] | 0, sigma_model);
-  }
+  /*   target += normal_lpdf(y[i] - y_est[i] | 0, sigma_model); */
+  /* } */
   
-  target += cauchy_lpdf(sigma_model | 0, sig_model_shape);
+  /* target += cauchy_lpdf(sigma_model | 0, sig_model_shape); */
 }
 
 generated quantities {
   vector[N] y_pred;
-  vector[N] logLik;
 
   for(i in 1:N){ 
     y_pred[i] = model_matrix[i,] * b_fix + model_matrix[i,] * b[node_number[i]]; //y = xb (1x2 * 2x1)
 
     for(r in 1:R)
       y_pred[i] = y_pred[i] + ranints[ranint_matrix[i,r], r];
-
-    logLik[i] = normal_lpdf(y[i] - y_pred[i] | 0, sigma_model);
   }
   
 }
