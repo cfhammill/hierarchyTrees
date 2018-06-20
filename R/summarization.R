@@ -85,6 +85,24 @@ get_sglm_results <-
        , scaled_post = scaled_post)
   }
 
+#' Compute the likelihood for a tree model
+#'
+#' @param mod A stan model with at least `y_pred`
+#' and `sigma_model`
+#' @param y The y data
+#' @return A matrix with the same dimensions as
+#' `extract(mod, "y_pred")[[1]]` i.e. samples x obs
+#' containing the gaussian likelihood of each
+#' y_pred sample.
+#' @export
+logLik_ept <- function(mod, y){
+  y_pred <- extract(mod, "y_pred")[[1]]
+  sigma <- extract(mod, "sigma_model")[[1]]
+
+  t(sapply(seq_len(nrow(y_pred)),
+         function(i) log(dnorm(y - y_pred[i,], sd = sigma[i]))))
+}
+
 #' Get the fitted value from an ept model
 #'
 #' @param ept The ept model of interest
