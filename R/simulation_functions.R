@@ -8,18 +8,17 @@
 #' @export
 aggregate_volsD <-
   function(tree){
-    if(is.null(tree$children) || length(tree$children) == 0)
-      return(tree)
 
-    sapply(tree$children, aggregate_volsD)
-
-    tree$volumes <-
-      sapply(tree$children
-           , function(n) n$volumes) %>%
-      as.matrix %>%
-      rowSums
-
-    tree$meanVolume <- mean(tree$volumes)
+    tree$Do(function(n){
+      if(!isLeaf(n)){
+        Reduce(function(acc, x){
+          cbind(acc, x$volumes), n$children, NULL
+        }) %>%
+          rowSums()
+      }
+      
+      n$meanVolume <- mean(n$volumes)      
+    }, traversal = "post-order")
 
     invisible(tree)
   }
@@ -57,13 +56,10 @@ child_of <- function(node, name){
 #' @export
 add_effectD <-
   function(tree, effect, name = tree$name){
-    if(!is.null(tree$children) && length(tree$children) > 0){
-      lapply(tree$children, add_effectD, name = name, effect = effect)
-    } else {
-      if(tree$name == name || child_of(tree, name)){
-        tree$volumes <- tree$volumes + effect
-      }
-    }
+    tree$Do(function(n){
+      if(n$name == name || child_of(n, name))
+         n$volumes <- n$volumes + effects
+    })
 
     invisible(tree)
   }
@@ -81,13 +77,10 @@ add_effectD <-
 #' @export
 scale_volumesD <-
   function(tree, scale, name = tree$name){
-    if(!is.null(tree$children) && length(tree$children) > 0){
-      lapply(tree$children, scale_volumesD, name = name, scale = scale)
-    } else {
-      if(tree$name == name || child_of(tree, name)){
-        tree$volumes <- scale * tree$volumes
-      }
-    }
+    tree$Do(function(n){
+      if(n$name == name || child_of(n, name))
+        n$volumes <- n$volumes * scale
+    })
 
     invisible(tree)    
   }
@@ -103,13 +96,10 @@ scale_volumesD <-
 #' @export
 set_leavesD <-
   function(tree, vals, name = tree$name){
-   if(!is.null(tree$children) && length(tree$children) > 0){
-      lapply(tree$children, set_leavesD, name = name, vals = vals)
-    } else {
-      if(tree$name == name || child_of(tree, name)){
-        tree$volumes[] <- vals
-      }
-    }
+    tree$Do(function(n){
+      if(n$name == name || child_of(n, name))
+        n$volumes[] <- vals
+    })
 
     invisible(tree)    
   }
@@ -214,3 +204,5 @@ create_tree <-
     list(effects = composite_effects
        , tree = simulated_tree)
   }
+
+#' Simulate from an Effect Diffusion Tree
