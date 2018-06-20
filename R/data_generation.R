@@ -165,9 +165,10 @@ tree_to_ept_data <- function(tree, metadata, justLeaves = FALSE){
     , ranint_matrix = matrix(as.integer(as.factor(hvf_sub$ID)))
     , ranint_sizes = as.array(max(ranint_matrix))
     , Ranint_max = max(ranint_sizes)
-    , ranint_shape = 3
+    , ranint_shape = 1
     , lkj_shape = 1
-    , tau_shape = 3
+    , tau_shape = 2
+    , tau_rate = 3
     , pi_conc = 1
     , sig_model_shape = 1
       )
