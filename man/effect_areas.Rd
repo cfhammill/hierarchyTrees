@@ -4,7 +4,7 @@
 \alias{effect_areas}
 \title{Effect areas}
 \usage{
-effect_areas(results, effects, sds, tree)
+effect_areas(results, effects, sds, tree, justLeaves = FALSE)
 }
 \arguments{
 \item{results}{The result object of interest}
@@ -14,6 +14,8 @@ effect_areas(results, effects, sds, tree)
 \item{sds}{The node sds}
 
 \item{tree}{The source tree}
+
+\item{justLeaves}{Whether or not to just extract effects at leaves}
 }
 \value{
 a ggplot object
