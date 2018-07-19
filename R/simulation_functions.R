@@ -10,12 +10,11 @@ aggregate_volsD <-
   function(tree){
 
     tree$Do(function(n){
-      if(!isLeaf(n)){
-        Reduce(function(acc, x){
-          cbind(acc, x$volumes), n$children, NULL
-        }) %>%
-          rowSums()
-      }
+      n$volumes <-
+        `if`(!isLeaf(n)
+           , Reduce(function(acc, x) cbind(acc, x$volumes), n$children, NULL) %>%
+             rowSums()
+           , n$volumes)
       
       n$meanVolume <- mean(n$volumes)      
     }, traversal = "post-order")
@@ -58,7 +57,7 @@ add_effectD <-
   function(tree, effect, name = tree$name){
     tree$Do(function(n){
       if(n$name == name || child_of(n, name))
-         n$volumes <- n$volumes + effects
+         n$volumes <- n$volumes + effect
     })
 
     invisible(tree)
@@ -204,5 +203,3 @@ create_tree <-
     list(effects = composite_effects
        , tree = simulated_tree)
   }
-
-#' Simulate from an Effect Diffusion Tree
