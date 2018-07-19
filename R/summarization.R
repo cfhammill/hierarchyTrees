@@ -3,6 +3,7 @@
 #' @param ept_mod The ept_mod
 #' @param tree The tree of interest
 #' @param leaf_sds SDs used in scaling leaf volumes
+#' @param justLeaves Whether or not to just extract effects at leaves
 #' @return A list containing
 #' 1. `fix` The fixed effects of the model
 #' 2. `effects` The estimated median effects in the model
@@ -10,18 +11,25 @@
 #' 4. `b_post` The effect posterior samples
 #' @export
 get_ept_results <-
-  function(ept_mod, tree, sds){
+  function(ept_mod, tree, sds, justLeaves = FALSE){
     nodes <- tree$Get("name")
+    lnodes <- tree$Get("name", filterFun = isLeaf)
+    
     post <- extract(ept_mod)$b[ , order(nodes), 2]
     colnames(post) <- sort(nodes)
+
+    if(justLeaves){
+      post <- post[,lnodes]
+      nodes <- lnodes
+    }
 
     b_fix <-
       extract(ept_mod)$b_fix %>% apply(2, median)
     
-    scaled_post <- t(t(post + b_fix[2]) * sds)
+    scaled_post <- t(t(post[,nodes] + b_fix[2]) * sds[nodes])
 
     raw_effects <-
-      apply(post[,nodes], 2, median) 
+      apply(post[,nodes], 2, median)    
 
     scaled_effects <-
       apply(scaled_post[,nodes], 2, median)
@@ -30,7 +38,7 @@ get_ept_results <-
       extract(ept_mod) %>%
       .$ranints %>%
       apply(2,median) %>%
-      `*`(mean(sds))
+      `*`(mean(sds[nodes]))
 
     list(fix = b_fix
        , effects = scaled_effects
@@ -45,6 +53,7 @@ get_ept_results <-
 #' @param smod The [stan_glmer] model
 #' @param tree The tree of interest
 #' @param leaf_sds SDs used in scaling leaf volumes
+#' @param justLeaves Whether or not to just extract effects at leaves
 #' @return A list containing
 #' 1. `fix` The fixed effects of the model
 #' 2. `effects` The estimated median effects in the model
@@ -52,8 +61,9 @@ get_ept_results <-
 #' 4. `b_post` The effect posterior samples
 #' @export
 get_sglm_results <-
-  function(smod, tree, sds){
-    nodes <- tree$Get("name")
+  function(smod, tree, sds, justLeaves = FALSE){
+    ff <- `if`(justLeaves, isLeaf, function(x) TRUE) 
+    nodes <- tree$Get("name", filterFun = ff)
     post <- as.matrix(smod)
     cols <- colnames(post)
     effect_cols <- sapply(nodes, function(n){
@@ -65,6 +75,166 @@ get_sglm_results <-
     b_post <- post[,effect_cols]
     fix <- post[ , c("(Intercept)","SEX")] %>% apply(2, median)
     colnames(b_post) <- nodes
+
+    scaled_post <- t(t(b_post + fix[2]) * (sds))
+
+    raw_effects <- 
+      b_post %>%
+      apply(2, median) 
+
+    scaled_effects <-
+      scaled_post %>% apply(2, median)
+
+    ranints <- as.numeric(ranef(smod)$ID[,1])
+   
+    list(fix = fix
+       , effects = scaled_effects
+       , raw_effects = raw_effects
+       , ranints = ranints
+       , b_post = b_post
+       , scaled_post = scaled_post)
+  }
+
+#' Extract the salient results from an stan_glmer model
+#' 
+#' @param smod The [stan_glmer] model
+#' @param tree The tree of interest
+#' @param leaf_sds SDs used in scaling leaf volumes
+#' @return A list containing
+#' 1. `fix` The fixed effects of the model
+#' 2. `effects` The estimated median effects in the model
+#' 3. `ranints` The estimated random intercepts from the model
+#' 4. `b_post` The effect posterior samples
+#' @export
+get_hsglm_results <-
+  function(smod, tree, sds){
+    leaf_nodes <- tree$Get("name", filterFun = isLeaf)
+    parent_nodes <- tree$Get("name", filterFun = Negate(isLeaf))
+    
+    post <- as.matrix(smod)
+    cols <- colnames(post)
+    effect_cols <- sapply(leaf_nodes, function(n){
+      n %>%
+        gsub("([().])", "\\\\\\1", .) %>%
+        gsub(" ", "_", .) %>% { grep(paste0("b\\[SEX.*name:", ., "]"), cols) }
+    })
+
+    peff_cols <- sapply(parent_nodes, function(n){
+      n %>%
+        gsub("([().])", "\\\\\\1", .) %>%
+        gsub(" ", "_", .) %>% { grep(paste0("b\\[SEX.*parent:", ., "]"), cols) } %>%
+        { `if`(length(.) == 0, NA, .) }
+    })
+
+    tree$Do(function(n){
+      n$post <- post[,effect_cols[n$name]]
+    }, filterFun = isLeaf)
+
+    tree$Do(function(n){ 
+      n$post <- post[,peff_cols[n$name]] 
+    }, filterFun = function(n){
+      !isLeaf(n) && any(sapply(n$children, isLeaf))
+    })
+
+    tree$Do(function(n){
+      if(!is.null(n$parent) && !is.null(n$parent$post))
+        n$post <- n$post + n$parent$post
+    }, traversal = "pre-order", filterFun = isLeaf)
+
+    b_post <-
+      tree$Get("post", filterFun = isLeaf, simplify = FALSE) %>%
+      simplify2array
+    
+    fix <- post[ , c("(Intercept)","SEX")] %>% apply(2, median)
+    colnames(b_post) <- leaf_nodes
+
+    scaled_post <- t(t(b_post + fix[2]) * (sds))
+
+    raw_effects <- 
+      b_post %>%
+      apply(2, median) 
+
+    scaled_effects <-
+      scaled_post %>% apply(2, median)
+
+    ranints <- as.numeric(ranef(smod)$ID[,1])
+   
+    list(fix = fix
+       , effects = scaled_effects
+       , raw_effects = raw_effects
+       , ranints = ranints
+       , b_post = b_post
+       , scaled_post = scaled_post)
+  }
+
+#' Extract the salient results from an stan_glmer model
+#' 
+#' @param smod The [stan_glmer] model
+#' @param tree The tree of interest
+#' @param leaf_sds SDs used in scaling leaf volumes
+#' @return A list containing
+#' 1. `fix` The fixed effects of the model
+#' 2. `effects` The estimated median effects in the model
+#' 3. `ranints` The estimated random intercepts from the model
+#' 4. `b_post` The effect posterior samples
+#' @export
+get_h2sglm_results <-
+  function(smod, tree, sds){
+    is_p1 <- function(n) !isLeaf(n) && any(sapply(n$children, isLeaf))
+    
+    leaf_nodes <- tree$Get("name", filterFun = isLeaf)
+    p1_nodes <- tree$Get("name", filterFun = is_p1)
+    p2_nodes <- tree$Get("name", filterFun = function(n){
+      !isLeaf(n) && any(sapply(n$children, is_p1))
+    })
+    
+    post <- as.matrix(smod)
+    cols <- colnames(post)
+    effect_cols <- sapply(leaf_nodes, function(n){
+      n %>%
+        gsub("([().])", "\\\\\\1", .) %>%
+        gsub(" ", "_", .) %>% { grep(paste0("b\\[SEX.*name:", ., "]"), cols) }
+    })
+
+    peff_cols <- sapply(p1_nodes, function(n){
+      n %>%
+        gsub("([().])", "\\\\\\1", .) %>%
+        gsub(" ", "_", .) %>% { grep(paste0("b\\[SEX.*[^g]parent:", ., "]"), cols) } %>%
+        { `if`(length(.) == 0, NA, .) }
+    })
+
+    geff_cols <- sapply(p2_nodes, function(n){
+      n %>%
+        gsub("([().])", "\\\\\\1", .) %>%
+        gsub(" ", "_", .) %>% { grep(paste0("b\\[SEX.*gparent:", ., "]"), cols) } %>%
+        { `if`(length(.) == 0, NA, .) }
+    })
+
+    tree$Do(function(n){
+      n$post <- post[,effect_cols[n$name]]
+    }, filterFun = isLeaf)
+
+    tree$Do(function(n){ 
+      n$post <- post[,peff_cols[n$name]] 
+    }, filterFun = is_p1)
+
+    tree$Do(function(n){ 
+      n$post <- post[,geff_cols[n$name]] 
+    }, filterFun = function(n){
+      !isLeaf(n) && any(sapply(n$children, is_p1))
+    })
+
+    tree$Do(function(n){
+      if(!is.null(n$parent) && !is.null(n$parent$post))
+        n$post <- n$post + n$parent$post
+    }, traversal = "pre-order", filterFun = isLeaf)
+
+    b_post <-
+      tree$Get("post", filterFun = isLeaf, simplify = FALSE) %>%
+      simplify2array
+    
+    fix <- post[ , c("(Intercept)","SEX")] %>% apply(2, median)
+    colnames(b_post) <- leaf_nodes
 
     scaled_post <- t(t(b_post + fix[2]) * (sds))
 
@@ -103,6 +273,62 @@ logLik_ept <- function(mod, y){
          function(i) log(dnorm(y - y_pred[i,], sd = sigma[i]))))
 }
 
+#' Compute the marginal likelihood of a data point
+#'
+#' This assumes no knowledge of the individual random intercept from
+#' and simulates unobserved subjects.
+#'
+#' @param The model
+#' @param y the observed data
+#' @param indiv an integer index to the individual
+#' @return A matrix with the same dimensions as
+#' `extract(mod, "y_pred")[[1]]` i.e. samples x obs
+#' containing the gaussian likelihood of each
+#' y_pred sample.
+#' @export
+logLik_ept_nocluster <- function(mod, y, indiv){
+  y_pred <- extract(mod, "y_pred")[[1]]
+  sigma <- extract(mod, "sigma_model")[[1]]
+  ranints <- as.matrix(real_edt, pars = "ranints")
+
+  per_y_ranints <- ranints[,indiv]
+  y_pred_minus_ranints <- y_pred - per_y_ranints
+
+  t(sapply(seq_len(nrow(y_pred_minus_ranints)),
+           function(i) log(dnorm(y - y_pred_minus_ranints[i,]
+                               , sd = sigma[i]))))
+}
+
+#' Compute the marginal likelihood of a data point
+#'
+#' This assumes no knowledge of the individual random intercept from
+#' and simulates unobserved subjects.
+#'
+#' @param The model
+#' @param y the observed data
+#' @param indiv a character vector index to the individual
+#' @return A matrix with the same dimensions as
+#' `extract(mod, "y_pred")[[1]]` i.e. samples x obs
+#' containing the gaussian likelihood of each
+#' y_pred sample.
+#' @export
+logLik_sglm_nocluster <- function(mod, y, indiv){
+  y_pred <- posterior_linpred(mod)
+  sigma <- extract(mod$stanfit, "aux")[[1]]
+  ranints <-
+    as.matrix(mod) %>%
+    { .[ , grepl("b\\[\\(Intercept\\) ID.*", colnames(.))] }
+
+  indiv <- paste0("b[(Intercept) ID:", indiv, "]")
+
+  per_y_ranints <- ranints[,indiv]
+  y_pred_minus_ranints <- y_pred - per_y_ranints
+
+  t(sapply(seq_len(nrow(y_pred_minus_ranints)),
+           function(i) log(dnorm(y - y_pred_minus_ranints[i,]
+                               , sd = sigma[i]))))
+}
+
 #' Get the fitted value from an ept model
 #'
 #' @param ept The ept model of interest
@@ -119,10 +345,12 @@ fitted_ept <- function(ept) apply(extract(ept)$y_pred, 2, median)
 #' @param effects The simulated effects
 #' @param sds The node sds
 #' @param tree The source tree
+#' @param justLeaves Whether or not to just extract effects at leaves
 #' @return a ggplot object
 #' @export
-effect_areas <- function(results, effects, sds, tree){
-  nodes <- tree$Get("name")
+effect_areas <- function(results, effects, sds, tree, justLeaves = FALSE){
+  ff <- `if`(justLeaves, isLeaf, function(x) TRUE) 
+  nodes <- tree$Get("name", filterFun = ff)
   
   scaled_effects <-
     effects[nodes] %>%
@@ -158,15 +386,20 @@ effect_areas <- function(results, effects, sds, tree){
 #' @param effects The simulated effects
 #' @param sds The node sds
 #' @param tree The source tree
+#' @param justLeaves just extract results for the leaves
 #' @return A vector of pointwise likelihoods for each parameter
 #' @export
-pw_effect_loglik <- function(results, effects, sds, tree){
+pw_effect_loglik <- function(results, effects, sds, tree, justLeaves = FALSE){
+  ff <- `if`(justLeaves, isLeaf, function(x) TRUE) 
+  nodes <- tree$Get("name", filterFun = ff)
+  effects <- effects[nodes]
+  sds <- sds[nodes]
+  
   scaled_effects <-
     effects %>%
     `/`(sds) %>%
     { data.frame(parameter = names(.), eff = .) }
 
-  nodes <- tree$Get("name")
   post <- results$b_post[,nodes] + results$fix[2]
 
   gauss_approx <-
