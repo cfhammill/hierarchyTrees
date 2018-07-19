@@ -40,6 +40,10 @@ tree_to_volume_frame <-
                                   `if`(!is.null(node$parent$name)
                                      , node$parent$name
                                      , NA)
+                              , gparent =
+                                  `if`(!is.null(node$parent$parent$name)
+                                     , node$parent$parent$name
+                                     , NA)
                               , volume = list(as.numeric(node$volumes))
                               , ind = list(as.character(1:length(node$volumes)))
                               , is_leaf = isLeaf(node))
