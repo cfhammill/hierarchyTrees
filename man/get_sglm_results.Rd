@@ -4,12 +4,14 @@
 \alias{get_sglm_results}
 \title{Extract the salient results from an stan_glmer model}
 \usage{
-get_sglm_results(smod, tree, sds)
+get_sglm_results(smod, tree, sds, justLeaves = FALSE)
 }
 \arguments{
 \item{smod}{The \link{stan_glmer} model}
 
 \item{tree}{The tree of interest}
+
+\item{justLeaves}{Whether or not to just extract effects at leaves}
 
 \item{leaf_sds}{SDs used in scaling leaf volumes}
 }

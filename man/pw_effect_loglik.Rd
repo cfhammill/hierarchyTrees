@@ -4,7 +4,7 @@
 \alias{pw_effect_loglik}
 \title{Effect likelihoods}
 \usage{
-pw_effect_loglik(results, effects, sds, tree)
+pw_effect_loglik(results, effects, sds, tree, justLeaves = FALSE)
 }
 \arguments{
 \item{results}{The result object of interest}
@@ -14,6 +14,8 @@ pw_effect_loglik(results, effects, sds, tree)
 \item{sds}{The node sds}
 
 \item{tree}{The source tree}
+
+\item{justLeaves}{just extract results for the leaves}
 }
 \value{
 A vector of pointwise likelihoods for each parameter
