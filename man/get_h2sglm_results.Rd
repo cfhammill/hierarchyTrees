@@ -4,12 +4,15 @@
 \alias{get_h2sglm_results}
 \title{Extract the salient results from an stan_glmer model}
 \usage{
-get_h2sglm_results(smod, tree, sds)
+get_h2sglm_results(smod, tree, sds, addFix = TRUE, main = "SEX",
+  struct = "name", parent = "parent", grandparent = "gparent")
 }
 \arguments{
 \item{smod}{The \link{stan_glmer} model}
 
 \item{tree}{The tree of interest}
+
+\item{addFix}{Whether to add the fixed effects before scaling}
 
 \item{leaf_sds}{SDs used in scaling leaf volumes}
 }

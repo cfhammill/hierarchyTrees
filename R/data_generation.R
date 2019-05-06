@@ -182,3 +182,130 @@ tree_to_ept_data <- function(tree, metadata, justLeaves = FALSE){
      , sds = sds[nodes]
        ) 
 }
+
+#' Convert a volume tree to a data.frame
+#'
+#' Extract the name, label, and volumes for each node of the
+#' tree. The volumes are then expanded out creating a
+#' `data_frame` with n x v rows where n is the number of
+#' rows and v is the number of volumes
+#' @param vol_tree The volume tree of interest
+#' @param filterFun which nodes to include in the tree, defaults
+#' to isLeaf, all can be included with `function(n) TRUE`
+#' @return A `data_frame` with the volume tree
+#' @md
+#' @export
+tree_to_volume_frame_new <-
+  function(vol_tree, filterFun = isLeaf){
+    max_depth <-
+      vol_tree$Get("level") %>%
+      max
+    
+    parents <-
+      rep("", max_depth) %>%
+      setNames(paste0("p", rev(seq_len(max_depth) - 1))) %>%
+      as.list %>%
+      (dplyr::as_data_frame)
+
+    rep_last <- function(x, len){
+      xlen <- length(x)
+      
+      if(xlen < len)
+        x <- c(x, rep(x[xlen], len - xlen))
+
+      x
+    }
+    
+    vf <-
+      vol_tree$Get(filterFun = filterFun
+                 , function(node){
+                   node_attrs <-
+                     data_frame(name = node$name
+                              , parent =
+                                  `if`(!is.null(node$parent$name)
+                                     , node$parent$name
+                                     , NA)
+                              , gparent =
+                                  `if`(!is.null(node$parent$parent$name)
+                                     , node$parent$parent$name
+                                     , NA)
+                              , volume = list(as.numeric(node$volumes))
+                              , ind = list(as.character(1:length(node$volumes)))
+                              , is_leaf = isLeaf(node))
+
+                   depth <- node$level
+                   node_path <- parents
+                   node_path[1,] <- rep_last(node$path, max_depth)
+
+                   cbind(node_attrs, node_path)
+                 }
+               , simplify = FALSE
+               , traversal = "post-order") %>%
+      bind_rows %>%
+      mutate(bv = list(vol_tree$volumes)) %>%
+      unnest
+
+    vf
+  }
+
+#' Convert a tree and metadata into useable data for ept
+#' data
+#'
+#' @param tree The tree containing volumes
+#' @param metadata The metadata necessary, requires `SEX` as
+#' the covariate.
+#' @param scale Whether or not to centre/scale the volumes
+#' @param justLeaves Whether to filter down the data to
+#' just the leaf volume (default true)
+#' @return a list containing the requisite data for 
+#' fitting either flat models or effect diffusion models.
+#' @export 
+tree_to_ept_data_new <-
+  function(tree, metadata, scale = FALSE, justLeaves = TRUE
+           , model_formula = ~ group
+           ){
+  hvf <- tree_to_volume_frame_new(tree, function(n) TRUE)
+  hvft <- tag_volume_frame(hvf, metadata)
+
+  leaves <- tree$Get("name", filterFun = isLeaf)
+  nodes <- tree$Get("name")
+  
+  sds <-
+    hvft %>%
+    group_by(name) %>%
+    summarize(sd_vol = sd_vol[1]) %>%
+    with( setNames(sd_vol, name) )
+
+  if(justLeaves){
+    hvf_sub <- hvft %>% filter(is_leaf)
+  } else {
+    hvf_sub <- hvft
+  }
+
+  hept_data <-
+  lst(N = nrow(hvf_sub)
+    , P = 2
+    , R = 1
+    , NNodes = length(unique(hvft$name))
+    , y = `if`(scale, hvf_sub$scaled_vol, hvf_sub$volume)
+    , node_number = node_numbers(hvf_sub$name, tree)
+    , node_parent = parent_index(tree)
+    , parent_ind = match(node_parent, unique(node_parent))
+    , NParents = length(unique(node_parent))
+    , model_matrix = model.matrix(model_formula, data = hvf_sub)
+    , ranint_matrix = matrix(as.integer(as.factor(hvf_sub$ID)))
+    , ranint_sizes = as.array(max(ranint_matrix))
+    , Ranint_max = max(ranint_sizes)
+    , ranint_shape = 1
+    , lkj_shape = 1
+    , tau_shape = 2
+    , tau_rate = 3
+    , pi_conc = 1
+    , sig_model_shape = 1
+      )
+
+  list(vol_frame = hvf_sub
+     , stan_list = hept_data
+     , sds = sds[nodes]
+       ) 
+}
