@@ -151,13 +151,12 @@ get_ept_results <-
     }
 
     b_fix <-
-      extract(ept_mod)$b_fix %>% apply(2, median)
+      extract(ept_mod)$b_fix 
 
-    if(addFix){
-      scaled_post <- t(t(post[,nodes] + b_fix[2]) * sds[nodes])
-    } else {
-      scaled_post <- t(t(post[,nodes]) * sds[nodes])
-    }
+    if(addFix)
+      post <- post[,nodes] + b_fix[,2]
+
+    scaled_post <- t(t(post[,nodes]) * sds[nodes])
     
     raw_effects <-
       apply(post[,nodes], 2, median)    
@@ -171,7 +170,7 @@ get_ept_results <-
       apply(2,median) %>%
       `*`(mean(sds[nodes]))
 
-    list(fix = b_fix
+    list(fix = b_fix %>% apply(2, median)
        , effects = scaled_effects
        , raw_effects = raw_effects
        , ranints = ranints
@@ -209,14 +208,13 @@ get_sglm_results <-
     })
 
     b_post <- post[,effect_cols]
-    fix <- post[ , c("(Intercept)",main)] %>% apply(2, median)
+    fix <- post[ , c("(Intercept)",main)] 
     colnames(b_post) <- nodes
 
-    if(addFix){
-      scaled_post <- t(t(b_post + fix[2]) * (sds))
-    } else {
-      scaled_post <- t(t(b_post) * (sds))
-    }
+    if(addFix)
+      b_post <- b_post + fix[,2]
+
+    scaled_post <- t(t(b_post) * (sds))
       
     raw_effects <- 
       b_post %>%
@@ -227,7 +225,7 @@ get_sglm_results <-
 
     ranints <- as.numeric(ranef(smod)$ID[,1])
    
-    list(fix = fix
+    list(fix = fix %>% apply(2, median)
        , effects = scaled_effects
        , raw_effects = raw_effects
        , ranints = ranints
@@ -383,14 +381,13 @@ get_hsglm_results <-
       tree$Get("post", filterFun = isLeaf, simplify = FALSE) %>%
       simplify2array
     
-    fix <- post[ , c("(Intercept)",main)] %>% apply(2, median)
+    fix <- post[ , c("(Intercept)",main)] 
     colnames(b_post) <- leaf_nodes
 
-    if(addFix){
-      scaled_post <- t(t(b_post + fix[2]) * (sds))
-    } else {
-      scaled_post <- t(t(b_post) * (sds))
-    }
+    if(addFix)
+      b_post <- b_post + fix[,2]
+
+    scaled_post <- t(t(b_post) * (sds))
 
     raw_effects <- 
       b_post %>%
@@ -401,7 +398,7 @@ get_hsglm_results <-
 
     ranints <- as.numeric(ranef(smod)$ID[,1])
    
-    list(fix = fix
+    list(fix = fix %>% apply(2, median)
        , effects = scaled_effects
        , raw_effects = raw_effects
        , ranints = ranints
@@ -488,14 +485,13 @@ get_h2sglm_results <-
       tree$Get("post", filterFun = isLeaf, simplify = FALSE) %>%
       simplify2array
     
-    fix <- post[ , c("(Intercept)",main)] %>% apply(2, median)
+    fix <- post[ , c("(Intercept)",main)]
     colnames(b_post) <- leaf_nodes
 
-    if(addFix){
-      scaled_post <- t(t(b_post + fix[2]) * (sds))
-    } else {
-      scaled_post <- t(t(b_post) * (sds))
-    }
+    if(addFix)
+      b_post <- b_post + fix[,2]
+    
+    scaled_post <- t(t(b_post) * (sds))
     
     raw_effects <- 
       b_post %>%
@@ -506,7 +502,7 @@ get_h2sglm_results <-
 
     ranints <- as.numeric(ranef(smod)$ID[,1])
    
-    list(fix = fix
+    list(fix = fix %>% apply(2, median)
        , effects = scaled_effects
        , raw_effects = raw_effects
        , ranints = ranints
