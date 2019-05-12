@@ -17,8 +17,6 @@ A matrix with the same dimensions as
 \code{extract(mod, "y_pred")[[1]]} i.e. samples x obs
 containing the gaussian likelihood of each
 y_pred sample.
-
-[[1]: R:[1
 }
 \description{
 Compute the likelihood for a tree model

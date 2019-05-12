@@ -57,3 +57,39 @@ post_pred.np_fit <- function(mod){
   lapply(mod$fitted, post_pred) %>%
     reduce(rbind)
 }
+
+#' Get the y value for a model, useful in the case of no-pooling
+#' where the variables get shuffled.
+#' @param mod The model of interest
+#' @export
+extract_y <- function(mod) UseMethod("extract_y")
+
+#' @export
+extract_y.edt_fit <- function(mod){
+  mod$data$y
+}
+
+#' @export
+extract_y.np_fit <- function(mod){
+  sapply(mod$fitted, extract_y)        
+}
+
+#' @export
+extract_y.stanreg <- function(mod){
+  mod$y  
+}
+
+#' Get the data for a model, useful in the case of no-pooling
+#' where the variables get shuffled.
+#' @param mod The model of interest
+#' @export
+extract_data <- function(mod) UseMethod("extract_data")
+
+#' @export
+extract_data.edt_fit <- function(mod) mod$data
+
+#' @export
+extract_data.stanreg <- function(mod) mod$data
+
+#' @export
+extract_data.np_fit <- function(mod) bind_rows(lapply(mod$fitted, extract_data))

@@ -12,9 +12,9 @@ get_h2sglm_results(smod, tree, sds, addFix = TRUE, main = "SEX",
 
 \item{tree}{The tree of interest}
 
-\item{addFix}{Whether to add the fixed effects before scaling}
+\item{sds}{SDs used in scaling leaf volumes}
 
-\item{leaf_sds}{SDs used in scaling leaf volumes}
+\item{addFix}{Whether to add the fixed effects before scaling}
 }
 \value{
 A list containing

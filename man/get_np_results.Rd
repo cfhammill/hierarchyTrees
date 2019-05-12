@@ -11,9 +11,9 @@ get_np_results(smod, tree, sds, justLeaves = FALSE, main = "SEXM")
 
 \item{tree}{The tree of interest}
 
-\item{justLeaves}{Whether or not to just extract effects at leaves}
+\item{sds}{SDs used in scaling leaf volumes}
 
-\item{leaf_sds}{SDs used in scaling leaf volumes}
+\item{justLeaves}{Whether or not to just extract effects at leaves}
 }
 \value{
 A list containing

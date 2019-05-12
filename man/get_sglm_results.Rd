@@ -12,11 +12,11 @@ get_sglm_results(smod, tree, sds, justLeaves = FALSE, addFix = TRUE,
 
 \item{tree}{The tree of interest}
 
+\item{sds}{SDs used in scaling leaf volumes}
+
 \item{justLeaves}{Whether or not to just extract effects at leaves}
 
 \item{addFix}{Whether to add the fixed effects before scaling}
-
-\item{leaf_sds}{SDs used in scaling leaf volumes}
 }
 \value{
 A list containing
