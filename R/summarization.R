@@ -170,7 +170,8 @@ get_ept_results <-
       apply(2,median) %>%
       `*`(mean(sds[nodes]))
 
-    list(fix = b_fix %>% apply(2, median)
+    list(fix_post = b_fix
+       , fix = b_fix %>% apply(2, median)
        , effects = scaled_effects
        , raw_effects = raw_effects
        , ranints = ranints
@@ -225,7 +226,8 @@ get_sglm_results <-
 
     ranints <- as.numeric(ranef(smod)$ID[,1])
    
-    list(fix = fix %>% apply(2, median)
+    list(fix_post = fix
+       , fix = fix %>% apply(2, median)
        , effects = scaled_effects
        , raw_effects = raw_effects
        , ranints = ranints
@@ -398,7 +400,8 @@ get_hsglm_results <-
 
     ranints <- as.numeric(ranef(smod)$ID[,1])
    
-    list(fix = fix %>% apply(2, median)
+    list(fix_post = fix 
+       , fix = fix %>% apply(2, median)
        , effects = scaled_effects
        , raw_effects = raw_effects
        , ranints = ranints
@@ -502,7 +505,8 @@ get_h2sglm_results <-
 
     ranints <- as.numeric(ranef(smod)$ID[,1])
    
-    list(fix = fix %>% apply(2, median)
+    list(fix_post = fix
+       , fix = fix %>% apply(2, median)
        , effects = scaled_effects
        , raw_effects = raw_effects
        , ranints = ranints
