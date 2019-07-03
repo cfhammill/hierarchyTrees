@@ -93,3 +93,25 @@ extract_data.stanreg <- function(mod) mod$data
 
 #' @export
 extract_data.np_fit <- function(mod) bind_rows(lapply(mod$fitted, extract_data))
+
+#' Compute subject specific sum of squares
+#'
+#' @param The predicted value
+#' @param The model of interest
+#' @export
+compute_subject_error <- function(pred, mod){
+  y <- extract_y(mod)
+  mod_d <- extract_data(mod)
+
+  if(inherits(mod, "edt_fit")){
+    id <- mod_d$ranint_matrix[,1]
+  } else {
+    id <- mod_d$ID
+  }
+  
+  tapply(seq_len(nrow(pred)), list(id), function(rows){
+    colSums((y[rows] - pred[rows,,drop = FALSE])^2)
+  }) %>%
+  reduce(rbind) %>%
+  t
+}
