@@ -130,6 +130,8 @@ node_numbers <-
 #' Convert a tree and metadata into useable data for ept
 #' data
 #'
+#' This was the original incarnation, now out of date.
+#'
 #' @param tree The tree containing volumes
 #' @param metadata The metadata necessary, requires `SEX` as
 #' the covariate.
@@ -248,8 +250,8 @@ tree_to_volume_frame_new <-
     vf
   }
 
-#' Convert a tree and metadata into useable data for ept
-#' data
+#' Convert a tree and metadata into useable data for hierarchical
+#' modelling
 #'
 #' @param tree The tree containing volumes
 #' @param metadata The metadata necessary, requires `SEX` as
@@ -260,7 +262,7 @@ tree_to_volume_frame_new <-
 #' @return a list containing the requisite data for 
 #' fitting either flat models or effect diffusion models.
 #' @export 
-tree_to_ept_data_new <-
+tree_to_edt_data <-
   function(tree, metadata, scale = FALSE, justLeaves = TRUE
            , model_formula = ~ group
            ){
@@ -309,3 +311,7 @@ tree_to_ept_data_new <-
      , sds = sds[nodes]
        ) 
 }
+
+#' @describeIn tree_to_edt_data deprecated old variant
+#' @export
+tree_to_ept_data_new <- tree_to_edt_data

@@ -18,6 +18,5 @@ a list containing the requiste data for fitting an
 ept model.
 }
 \description{
-Convert a tree and metadata into useable data for ept
-data
+This was the original incarnation, now out of date.
 }
