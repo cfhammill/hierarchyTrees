@@ -123,6 +123,23 @@ summarize_model.np_fit <-
                        )
     }
 
+#' @export
+summarize_model.npl_fit <-
+    function(model, tree, leaf_scales = NULL, main = "group", ...){
+        if(is.null(leaf_scales)){
+            leaves <- tree$Get("name", filterFun = isLeaf)
+            leaf_scales <-
+                rep(1, length(leaves)) %>%
+                setNames(leaves)                
+        }
+          
+        get_npl_results(model
+                     , tree = tree
+                     , sds = leaf_scales
+                     , justLeaves = TRUE
+                     , main = main
+                       )
+    }
 
 #' Extract the salient results from an ept mod
 #' 
@@ -323,7 +340,55 @@ get_np_results <-
        , scaled_post = scaled_post)
   }
 
+#' Extract the salient results from an stan_glmer model
+#' 
+#' @param smod The [stan_glmer] model
+#' @param tree The tree of interest
+#' @param sds SDs used in scaling leaf volumes
+#' @param justLeaves Whether or not to just extract effects at leaves
+#' @return A list containing
+#' 1. `fix` 0 for this model
+#' 2. `effects` The estimated median effects in the model
+#' 3. `ranints` 0 for this model
+#' 4. `b_post` The posterior for the effects
+#' @export
+get_npl_results <-
+  function(smod, tree, sds, justLeaves = FALSE, main = "SEXM"){
+    ff <- `if`(justLeaves, isLeaf, function(x) TRUE) 
+    nodes <- tree$Get("name", filterFun = ff)
 
+    if(!"name" %in% names(smod))
+        smod$name <- smod$p0
+
+    main <- paste0("b[", main, "]")
+    post <- sapply(nodes, function(n){
+      mod <- filter(smod, name == n)$fitted[[1]]
+      as.matrix(mod)[ , main, drop = FALSE] %>%
+        `colnames<-`(n)
+    })
+    
+    b_post <- post
+    
+    fix <- 0
+
+    scaled_post <- t(t(b_post) * (sds))
+
+    raw_effects <- 
+      b_post %>%
+      apply(2, median) 
+
+    scaled_effects <-
+      scaled_post %>% apply(2, median)
+
+    ranints <- 0
+   
+    list(fix = fix
+       , effects = scaled_effects
+       , raw_effects = raw_effects
+       , ranints = ranints
+       , b_post = b_post
+       , scaled_post = scaled_post)
+  }
 
 #' Extract the salient results from an stan_glmer model
 #' 
