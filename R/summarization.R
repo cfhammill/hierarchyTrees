@@ -360,7 +360,6 @@ get_npl_results <-
     if(!"name" %in% names(smod))
         smod$name <- smod$p0
 
-    main <- paste0("b[", main, "]")
     post <- sapply(nodes, function(n){
       mod <- filter(smod, name == n)$fitted[[1]]
       as.matrix(mod)[ , main, drop = FALSE] %>%
