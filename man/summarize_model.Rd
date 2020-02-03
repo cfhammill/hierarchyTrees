@@ -4,8 +4,7 @@
 \alias{summarize_model}
 \title{Summarize a bayesian linear model}
 \usage{
-summarize_model(model, tree, leaf_scales = NULL, just_leaves = TRUE,
-  ...)
+summarize_model(model, tree, leaf_scales = NULL, just_leaves = TRUE, ...)
 }
 \arguments{
 \item{model}{the model to summarize}
