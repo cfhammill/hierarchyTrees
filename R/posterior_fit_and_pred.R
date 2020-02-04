@@ -23,6 +23,12 @@ get_fitted.np_fit <- function(mod){
     reduce(rbind)
 }
 
+#' @export
+get_fitted.npl_fit <- function(mod){
+  lapply(mod$fitted, get_fitted) %>%
+    reduce(rbind)
+}
+
 #' Get posterior predictions from a bayesian hierarchical linear model
 #'
 #' Faster than the rstanarm version.
@@ -58,6 +64,12 @@ post_pred.np_fit <- function(mod){
     reduce(rbind)
 }
 
+#' @export
+post_pred.npl_fit <- function(mod){
+  lapply(mod$fitted, post_pred) %>%
+    reduce(rbind)
+}
+
 #' Get the y value for a model, useful in the case of no-pooling
 #' where the variables get shuffled.
 #' @param mod The model of interest
@@ -71,6 +83,11 @@ extract_y.edt_fit <- function(mod){
 
 #' @export
 extract_y.np_fit <- function(mod){
+  sapply(mod$fitted, extract_y)        
+}
+
+#' @export
+extract_y.npl_fit <- function(mod){
   sapply(mod$fitted, extract_y)        
 }
 
@@ -93,6 +110,10 @@ extract_data.stanreg <- function(mod) mod$data
 
 #' @export
 extract_data.np_fit <- function(mod) bind_rows(lapply(mod$fitted, extract_data))
+
+#' @export
+extract_data.npl_fit <- function(mod) bind_rows(lapply(mod$fitted, extract_data))
+
 
 #' Compute subject specific sum of squares
 #'
